@@ -8,168 +8,116 @@ let USERS = [];
 let COURSES = [];
 
 // Admin routes
+const adminAuthentication = (req,res,next)=>{
+  let {username,password} = req.headers
+  let admin = ADMINS.find(admin => admin.username === username && admin.password === password)
+  if(admin){
+    next()
+  }else{
+    res.status(404).send({message:"admin not found"})
+  }
+}
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
-  let username = req.body.username;
-  let password = req.body.password;
-  ADMINS.push({username,password})
-  res.status(200).send('Admin created Successfuly')
+  let details = req.body
+  let admin = ADMINS.find(admin => admin.username === details.username && admin.password === details.password)
+  if(admin){
+    res.status(403).send({message:"Admin already exists"})
+  }else{
+    ADMINS.push(details)
+    res.send({message:"Created the account"})
+  }
 });
 
-app.post('/admin/login', (req, res) => {
+app.post('/admin/login', adminAuthentication, (req, res) => {
   // logic to log in admin
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<ADMINS.length;i++){
-    if(ADMINS[i].username === username && ADMINS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag == 0){
-    res.status(404).send("Invalid admin")
-  }
   res.status(200).send("Login Succesfully")
 });
 
-app.post('/admin/courses', (req, res) => {
+app.post('/admin/courses', adminAuthentication ,(req, res) => {
   // logic to create a course
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<ADMINS.length;i++){
-    if(ADMINS[i].username === username && ADMINS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag == 0){
-    res.status(404).send("Invalid admin")
-  }
-  let course = {
-    id:COURSES.length+1,
-    title:req.body.title,
-    description:req.body.description,
-    price:req.body.price,
-    imageLink:req.body.imageLink,
-    published:req.body.published
-  }
+  let course = req.body
+  course.id = COURSES.length+1
   COURSES.push(course)
-  res.status(200).json({message:"course created",id:COURSES.length})
+  res.status(200).json({message:"course created",id:course.id})
 });
 
-app.put('/admin/courses/:courseId', (req, res) => {
+app.put('/admin/courses/:courseId', adminAuthentication,(req, res) => {
   // logic to edit a course
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<ADMINS.length;i++){
-    if(ADMINS[i].username === username && ADMINS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag === 0){
-    res.status(404).send("Invalid admin")
-  }
-  let index = COURSES.findIndex(course => course.id === req.query.courseId)
-  if(index === -1){
+  let updatedCourse = req.body
+  let course = COURSES.find(course=>course.id === parseInt(req.params.courseId))
+  if(course){
+    Object.assign(course,updatedCourse)
+    res.send({message:"Updated the course",id:course.id})
+  }else{
     res.status(404).send("Course not found")
   }
-  res.status(200).send("Course updated Succesfully")
 });
 
-app.get('/admin/courses', (req, res) => {
+app.get('/admin/courses', adminAuthentication,(req, res) => {
   // logic to get all courses
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<ADMINS.length;i++){
-    if(ADMINS[i].username === username && ADMINS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag === 0){
-    res.status(404).send("Invalid admin")
-  }
   res.send(COURSES)
 });
 
 // User routes
+const userAuthentication = (req,res,next) =>{
+  let {username,password} = req.headers
+  let user = USERS.find(user=> user.username === username && user.password === password);
+  if(user){
+    req.user = user
+    next()
+  }else{
+    res.status(403).send("User not found")
+  }
+}
+
 app.post('/users/signup', (req, res) => {
   // logic to sign up user
-  let username = req.body.username
-  let password = req.body.password
-  USERS.push({username,password})
-  res.send("user created succesfully")
+  let {username,password} = req.body
+  let check = USERS.find(user=>user.username === username && user.password === password)
+  if(check){
+    res.status(403).send({message:"User already exists"})
+  }
+  const user = {
+    username:req.body.username,
+    password:req.body.password,
+    purchasedCourses:[]
+  }
+  USERS.push(user)
+  res.json({message:"User created succesfully"})
 });
 
-app.post('/users/login', (req, res) => {
+app.post('/users/login', userAuthentication,(req, res) => {
   // logic to log in user
-  let username = req.body.username
-  let password = req.body.password
-  let flag = 0
-  for(let i = 0;i<USERS.length;i++){
-    if(USERS[i].username === username && USERS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag == 0){
-    res.status(404).send("User not found")
-  }else{
-    res.send("LoggedIn Sucessfully")
-  }
+  res.send("LoggedIn Sucessfully")
 });
 
-app.get('/users/courses', (req, res) => {
+app.get('/users/courses', userAuthentication,(req, res) => {
   // logic to list all courses
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<USERS.length;i++){
-    if(USERS[i].username === username && USERS[i].password === password){
-      flag = 1;
-    }
-  }
-  if(flag === 0) res.status(404).send("User not found")
-  res.send(COURSES)
+  let publishedCourses = COURSES.filter(course=> course.published)
+  res.send({courses:publishedCourses})
 });
 
-app.post('/users/courses/:courseId', (req, res) => {
+app.post('/users/courses/:courseId', userAuthentication,(req, res) => {
   // logic to purchase a course
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<USERS.length;i++){
-    if(USERS[i].username === username && USERS[i].password === password){
-      flag = 1;
-    }
+  let courseId = parseInt(req.params.courseId)
+  let course = COURSES.find(course=>course.id === courseId && course.published)
+  if(course){
+    req.user.purchasedCourses.push(courseId)
+    res.send({message:"Course purchased succesfully"})
   }
-  if(flag === 0) res.status(404).send("User not found")
-  
-  let index = COURSES.findIndex(course => course.id === req.query.courseId)
-  if(index === -1){
-    res.status(404).send("Course not available")
-  }
-  COURSES[i].published = "YES"
 });
 
-app.get('/users/purchasedCourses', (req, res) => {
+app.get('/users/purchasedCourses', userAuthentication, (req, res) => {
   // logic to view purchased courses
-  let username = req.headers.username
-  let password = req.headers.password
-  let flag = 0;
-  for(let i = 0;i<USERS.length;i++){
-    if(USERS[i].username === username && USERS[i].password === password){
-      flag = 1;
+  let purchasedCoursesIds = req.user.purchasedCourses
+  let courses = []
+  for(let i = 0;i<COURSES.length;i++){
+    if(purchasedCoursesIds.indexOf(COURSES[i].id) !== -1){
+      courses.push({courses:COURSES[i]})
     }
   }
-  if(flag === 0) res.status(404).send("User not found")
-  let ans = []
-  for(let i = 0;i<USERS.length;i++){
-    if(USERS[i].published === "YES"){
-      ans.push(USERS[i]);
-    }
-  }
-  res.send(ans)
+  res.send({courses})
 });
 
 app.listen(3000, () => {
